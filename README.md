@@ -114,10 +114,12 @@ The tested long-run profile uses native CUDA allocation, no intermediate-node ca
 
 ```powershell
 $env:PYTORCH_ALLOC_CONF='garbage_collection_threshold:0.75'
-.\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --enable-manager --use-sage-attention --disable-cuda-malloc --cache-none --preview-method none
+.\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --enable-manager --use-sage-attention --disable-cuda-malloc --disable-pinned-memory --cache-none --preview-method none
 ```
 
 The custom controller also unloads models and clears inactive CUDA allocations after a saved clip and before the next queued clip. This addresses cumulative memory fragmentation; it does not make a single clip fit if its resolution or duration already exceeds available VRAM.
+
+`--disable-pinned-memory` avoids a current Windows DynamicVRAM failure in which a long mixed-precision video run can terminate with `HostBuffer.read_file_slice failed` followed by `CUDA error: out of memory`. Keep DynamicVRAM and asynchronous offload enabled unless this workaround still fails. If it does, try adding `--vram-headroom 1.0`; use `--disable-dynamic-vram` only as the next diagnostic fallback because it changes the model-loading strategy more substantially.
 
 ## Validation
 

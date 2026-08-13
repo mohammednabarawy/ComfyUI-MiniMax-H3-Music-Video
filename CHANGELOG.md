@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1 - 2026-08-13
+
+- Add the Windows H3 launch workaround for DynamicVRAM `HostBuffer.read_file_slice failed` CUDA OOMs.
+- Document conservative headroom and legacy-loading fallback steps.
+
 ## 1.0.0 - 2026-08-13
 
 - Initial public release.
