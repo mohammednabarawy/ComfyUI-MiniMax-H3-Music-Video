@@ -1,0 +1,26 @@
+{
+  "pan_right_slow": {
+    "file": "pan_r.mp4",
+    "description": "A slow cinematic pan to the right"
+  },
+  "pan_left_slow": {
+    "file": "pan_l.mp4",
+    "description": "A slow cinematic pan to the left"
+  },
+  "zoom_in_face": {
+    "file": "zoom_in.mp4",
+    "description": "A slow push-in zoom focusing on the subject's face"
+  },
+  "zoom_out_wide": {
+    "file": "zoom_out.mp4",
+    "description": "A slow pull-out zoom revealing the wider environment"
+  },
+  "handheld_shake": {
+    "file": "handheld.mp4",
+    "description": "Handheld camera with slight organic shake and movement"
+  },
+  "drone_flyover": {
+    "file": "drone.mp4",
+    "description": "Smooth, sweeping overhead drone movement"
+  }
+}

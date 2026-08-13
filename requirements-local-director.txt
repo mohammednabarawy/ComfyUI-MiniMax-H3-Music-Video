@@ -1,0 +1,2 @@
+# Optional dependency for the local GGUF Director nodes.
+llama-cpp-python>=0.3

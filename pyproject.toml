@@ -1,0 +1,25 @@
+[project]
+name = "comfyui-minimax-h3-music-video"
+version = "1.0.0"
+description = "Resumable, identity-aware MiniMax H3 music-video planning and rendering nodes for ComfyUI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = [
+  "aiohttp>=3.9",
+  "imageio-ffmpeg>=0.5",
+  "librosa>=0.10",
+  "numpy>=1.26",
+  "opencv-python-headless>=4.9",
+  "Pillow>=10",
+  "pydantic>=2",
+  "transformers>=4.49",
+]
+
+[project.urls]
+Repository = "https://github.com/mohammednabarawy/ComfyUI-MiniMax-H3-Music-Video"
+Issues = "https://github.com/mohammednabarawy/ComfyUI-MiniMax-H3-Music-Video/issues"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
