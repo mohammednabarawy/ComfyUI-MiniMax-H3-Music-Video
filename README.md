@@ -63,6 +63,10 @@ The optimized workflows expect these filenames:
 
 The experimental H3 model files are available from [Kijai/MiniMax-H3-experimental](https://huggingface.co/Kijai/MiniMax-H3-experimental/tree/main), and the Turbo LoRA is available from [larryvrh/MiniMax-H3-Turbo-Lora](https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora/tree/main). Check each model repository’s license and usage terms separately.
 
+## Runtime compatibility
+
+The node backports the official MiniMax H3 dialogue-token mapping (`<d>` and `</d>` plus the related caption/lyrics tokens) when an older ComfyUI core does not provide it. H3 frame planning and both H.265 and H.264 save paths use 25 fps to prevent audio drift.
+
 ## Installation
 
 Clone this repository inside `ComfyUI/custom_nodes`:

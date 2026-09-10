@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-minimax-h3-music-video"
-version = "1.0.1"
+version = "1.0.2"
 description = "Resumable, identity-aware MiniMax H3 music-video planning and rendering nodes for ComfyUI"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -1,3 +1,9 @@
+## 1.0.2 - 2026-09-10
+
+- Backport the official MiniMax H3 dialogue special tokens for older ComfyUI runtimes.
+- Generate and save H3 clips consistently at 25 fps, including the H.264 fallback.
+- Resolve bundled FFmpeg for VideoHelperSuite before saving clips.
+
 # Changelog
 
 ## 1.0.1 - 2026-08-13

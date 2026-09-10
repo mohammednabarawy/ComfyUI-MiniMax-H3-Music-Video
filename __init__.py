@@ -28,8 +28,12 @@ if not __package__:
     __path__ = [str(Path(__file__).resolve().parent)]
     sys.modules.setdefault(__package__, sys.modules[__name__])
 
+from .runtime_compat import ensure_minimax_h3_dialogue_tokens
 
-def _snap_h3_frames(seconds, fps=24):
+ensure_minimax_h3_dialogue_tokens()
+
+
+def _snap_h3_frames(seconds, fps=25):
     frames = max(5, round(seconds * fps))
     return frames + (5 - frames % 17) % 17
 
@@ -286,6 +290,43 @@ def _release_clip_resources(stage):
         print(f"[MiniMax music video] CUDA cleanup {stage} was skipped: {exc}")
 
 
+def _resolve_ffmpeg():
+    for env_var in ("VHS_FORCE_FFMPEG_PATH", "FFMPEG_PATH", "IMAGEIO_FFMPEG_EXE"):
+        value = os.environ.get(env_var)
+        if value and Path(value).is_file():
+            return str(Path(value).resolve())
+    system = shutil.which("ffmpeg")
+    if system:
+        return str(Path(system).resolve())
+    try:
+        from imageio_ffmpeg import get_ffmpeg_exe
+        bundled = get_ffmpeg_exe()
+        if bundled and Path(bundled).is_file():
+            return str(Path(bundled).resolve())
+    except Exception:
+        pass
+    for parent in list(Path(__file__).resolve().parents)[:8]:
+        for relative in ("runtime/ffmpeg/bin/ffmpeg.exe", "ffmpeg/bin/ffmpeg.exe", "bin/ffmpeg.exe"):
+            candidate = parent / relative
+            if candidate.is_file():
+                return str(candidate.resolve())
+    return ""
+
+
+def _ensure_vhs_ffmpeg():
+    ffmpeg_bin = _resolve_ffmpeg()
+    if not ffmpeg_bin:
+        return
+    os.environ["VHS_FORCE_FFMPEG_PATH"] = ffmpeg_bin
+    os.environ["FFMPEG_PATH"] = ffmpeg_bin
+    ffmpeg_dir = str(Path(ffmpeg_bin).parent)
+    if ffmpeg_dir not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = f"{ffmpeg_dir}{os.pathsep}{os.environ.get('PATH', '')}"
+    for module_name, module in list(sys.modules.items()):
+        if "videohelpersuite" in module_name and hasattr(module, "ffmpeg_path"):
+            module.ffmpeg_path = ffmpeg_bin
+
+
 def _assemble(plan, audio):
     output_dir = Path(folder_paths.get_output_directory()).resolve()
     run_dir = (output_dir / plan["run_rel"]).resolve()
@@ -476,41 +517,84 @@ class MiniMaxMusicVideoAdvance:
 class MiniMaxMusicVideoSaveClip:
     @classmethod
     def INPUT_TYPES(cls):
-        return {"required": {
-            "images": ("IMAGE",),
-            "audio": ("AUDIO",),
-            "filename_prefix": ("STRING",),
-        }}
+        return {
+            "required": {
+                "images": ("IMAGE",),
+                "audio": ("AUDIO",),
+                "filename_prefix": ("STRING",),
+            },
+            "optional": {
+                "format": ("STRING", {"default": "video/h265-mp4"}),
+                "frame_rate": ("INT", {"default": 25, "min": 1, "max": 120}),
+            },
+        }
 
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("clip_path",)
     FUNCTION = "save"
     CATEGORY = "MiniMax H3/Music Video"
+    OUTPUT_NODE = True
 
-    def save(self, images, audio, filename_prefix):
+    def save(self, images, audio, filename_prefix, format="video/h265-mp4", frame_rate=25):
         import nodes
 
+        _ensure_vhs_ffmpeg()
+        format_norm = str(format or "video/h265-mp4").strip()
+        crf_val = 20 if "h265" in format_norm or "hevc" in format_norm else 19
+
         combiner = nodes.NODE_CLASS_MAPPINGS["VHS_VideoCombine"]()
-        saved = combiner.combine_video(
-            images=images,
-            audio=audio,
-            frame_rate=24,
-            loop_count=0,
-            filename_prefix=filename_prefix,
-            format="video/h264-mp4",
-            pingpong=False,
-            save_output=True,
-            pix_fmt="yuv420p",
-            crf=19,
-            save_metadata=False,
-            trim_to_audio=True,
-            extra_pnginfo={"workflow": {"extra": {"VHS_MetadataImage": False,
-                                                     "VHS_KeepIntermediate": False}}},
-        )
-        output_files = saved["result"][0][1]
-        if not output_files or not Path(output_files[-1]).exists():
-            raise RuntimeError("Video Helper Suite did not save the generated clip.")
-        return (output_files[-1],)
+        try:
+            saved = combiner.combine_video(
+                images=images,
+                audio=audio,
+                frame_rate=frame_rate,
+                loop_count=0,
+                filename_prefix=filename_prefix,
+                format=format_norm,
+                pingpong=False,
+                save_output=True,
+                pix_fmt="yuv420p",
+                crf=crf_val,
+                save_metadata=False,
+                trim_to_audio=True,
+                extra_pnginfo={"workflow": {"extra": {"VHS_MetadataImage": False,
+                                                         "VHS_KeepIntermediate": False}}},
+            )
+            output_files = saved["result"][0][1]
+            if not output_files or not Path(output_files[-1]).exists():
+                raise RuntimeError("Video Helper Suite did not save the generated clip.")
+            return {
+                "ui": {"gifs": saved.get("ui", {}).get("gifs", [])},
+                "result": (output_files[-1],),
+            }
+        except Exception as exc:
+            # If h265 was requested but failed (e.g. missing hevc encoder), fallback to h264
+            if "h265" in format_norm or "hevc" in format_norm:
+                print(f"[MiniMax H3 SaveClip] H.265 encoding failed ({exc}), falling back to H.264 (AVC)...")
+                saved = combiner.combine_video(
+                    images=images,
+                    audio=audio,
+                    frame_rate=frame_rate,
+                    loop_count=0,
+                    filename_prefix=filename_prefix,
+                    format="video/h264-mp4",
+                    pingpong=False,
+                    save_output=True,
+                    pix_fmt="yuv420p",
+                    crf=19,
+                    save_metadata=False,
+                    trim_to_audio=True,
+                    extra_pnginfo={"workflow": {"extra": {"VHS_MetadataImage": False,
+                                                             "VHS_KeepIntermediate": False}}},
+                )
+                output_files = saved["result"][0][1]
+                if not output_files or not Path(output_files[-1]).exists():
+                    raise RuntimeError("Video Helper Suite did not save the generated clip.")
+                return {
+                    "ui": {"gifs": saved.get("ui", {}).get("gifs", [])},
+                    "result": (output_files[-1],),
+                }
+            raise
 
 
 class MiniMaxLoadPreviousClipFrame:
@@ -614,8 +698,8 @@ register_server_routes()
 
 
 def _self_test():
-    assert _snap_h3_frames(5.0) == 124
-    assert _snap_h3_frames(10.0) == 243
+    assert _snap_h3_frames(5.0) == 141
+    assert _snap_h3_frames(10.0) == 260
     assert _chunk_ranges(21.0, 10.0, 120.0) == [(0.0, 10.0), (10.0, 10.0), (20.0, 1.0)]
     assert max(length for _, length in _chunk_ranges(21.0, 10.0, 70.0)) <= 10.0
     phased = json.dumps({"beat_times": [0.37 + 0.5 * index for index in range(50)]})
