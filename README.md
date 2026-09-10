@@ -67,6 +67,8 @@ The experimental H3 model files are available from [Kijai/MiniMax-H3-experimenta
 
 The node backports the official MiniMax H3 dialogue-token mapping (`<d>` and `</d>` plus the related caption/lyrics tokens) when an older ComfyUI core does not provide it. H3 frame planning and both H.265 and H.264 save paths use 25 fps to prevent audio drift.
 
+`MiniMaxMusicVideoSaveClip` also accepts an optional synchronized post-roll. It repeats the final video frame and appends matching silence before encoding, which keeps native H3 dialogue from ending directly at the media boundary. Leave it at `0` for music/external-audio clips; use about `0.4` seconds for native spoken dialogue.
+
 ## Installation
 
 Clone this repository inside `ComfyUI/custom_nodes`:

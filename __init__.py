@@ -38,6 +38,25 @@ def _snap_h3_frames(seconds, fps=25):
     return frames + (5 - frames % 17) % 17
 
 
+def _append_synchronized_postroll(images, audio, seconds, frame_rate):
+    """Hold the last frame and append silence so speech cannot end at EOF."""
+    seconds = max(0.0, float(seconds))
+    if seconds == 0:
+        return images, audio
+    if len(images) == 0 or int(audio["sample_rate"]) <= 0:
+        raise ValueError("Post-roll requires video frames and a valid audio sample rate.")
+
+    extra_frames = max(1, round(seconds * int(frame_rate)))
+    repeats = (extra_frames,) + (1,) * (images.ndim - 1)
+    padded_images = torch.cat((images, images[-1:].repeat(repeats)), dim=0)
+
+    waveform = audio["waveform"]
+    extra_samples = max(1, round(seconds * int(audio["sample_rate"])))
+    silence = waveform.new_zeros((*waveform.shape[:-1], extra_samples))
+    padded_audio = {**audio, "waveform": torch.cat((waveform, silence), dim=-1)}
+    return padded_images, padded_audio
+
+
 def _split_scenes(text):
     scenes = [x.strip() for x in re.split(r"(?m)^\s*---+\s*$", text) if x.strip()]
     return scenes or ["A restrained cinematic performance shot with subtle camera movement."]
@@ -526,6 +545,7 @@ class MiniMaxMusicVideoSaveClip:
             "optional": {
                 "format": ("STRING", {"default": "video/h265-mp4"}),
                 "frame_rate": ("INT", {"default": 25, "min": 1, "max": 120}),
+                "postroll_seconds": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 2.0, "step": 0.04}),
             },
         }
 
@@ -535,10 +555,11 @@ class MiniMaxMusicVideoSaveClip:
     CATEGORY = "MiniMax H3/Music Video"
     OUTPUT_NODE = True
 
-    def save(self, images, audio, filename_prefix, format="video/h265-mp4", frame_rate=25):
+    def save(self, images, audio, filename_prefix, format="video/h265-mp4", frame_rate=25, postroll_seconds=0.0):
         import nodes
 
         _ensure_vhs_ffmpeg()
+        images, audio = _append_synchronized_postroll(images, audio, postroll_seconds, frame_rate)
         format_norm = str(format or "video/h265-mp4").strip()
         crf_val = 20 if "h265" in format_norm or "hevc" in format_norm else 19
 

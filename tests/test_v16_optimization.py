@@ -8,7 +8,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from comfyui_minimax_music_video import _build_plan
+from comfyui_minimax_music_video import _append_synchronized_postroll, _build_plan
 from comfyui_minimax_music_video.audio_preprocessor import _fill_beat_grid, _timestamp_chunks
 from comfyui_minimax_music_video.director_batch import (
     _batch_cache_key,
@@ -26,6 +26,18 @@ def _audio(seconds=21, sample_rate=100):
         "sample_rate": sample_rate,
         "waveform": torch.zeros((1, 2, seconds * sample_rate), dtype=torch.float32),
     }
+
+
+def test_postroll_pads_audio_and_video_by_the_same_duration():
+    images = torch.ones((5, 2, 2, 3), dtype=torch.float32)
+    audio = _audio(seconds=1, sample_rate=100)
+
+    padded_images, padded_audio = _append_synchronized_postroll(images, audio, 0.4, 25)
+
+    assert padded_images.shape[0] == 15
+    assert padded_audio["waveform"].shape[-1] == 140
+    assert torch.equal(padded_images[-1], images[-1])
+    assert torch.count_nonzero(padded_audio["waveform"][..., -40:]) == 0
 
 
 def test_render_limit_does_not_truncate_whole_song_director_timeline():
